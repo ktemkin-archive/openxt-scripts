@@ -1,0 +1,28 @@
+#
+# Base configuration file for the OpenXT scripts.
+# Customize me, and place me in ~/.config/openxt_scripts.
+#
+
+#The local path to the directory that serves as your TFP root.
+TFTP_ROOT="/srv/tftp"
+
+#The local path to the directory in which OpenXT repositories are placed.
+REPO_ROOT="/srv/www"
+
+#The default "ISO prefix", which identifies a given install. 
+#This should contain no characters which would produce an invalid filename.
+DEFAULT_ISO_PREFIX=$(date +%F)
+ISO_PREFIX=${ISO_PREFIX:-$DEFAULT_ISO_PREFIX}
+
+#The IP address of the TFTP server.
+TFTP_IP="172.16.100.1"
+
+#... and the path within the server in which OpenXT netboot files are placed.
+TFTP_PATH=""
+
+#The external URL used to access the REPO_ROOT directory.
+NETBOOT_URL="http://172.16.100.1"
+
+#The PXE configuration file to be modified. If this variable is non-empty,
+#a menu entry will be automatically appended suitable for use with a syslinux PXE menu.
+PXE_CONFIG="/srv/tftp/pxelinux.cfg/default"

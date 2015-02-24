@@ -1,0 +1,21 @@
+<interactive>false</interactive>
+<preinstall>#!/bin/ash -e
+touch /tmp/preinstall.touch
+mkdir -p /config/etc/ssh
+touch /config/etc/ssh/enabled
+/etc/init.d/sshd stop >&2
+/etc/init.d/sshd start >&2
+</preinstall>
+<eula accept="yes"></eula>
+<mode>fresh</mode>
+<primary-disk>sda</primary-disk>
+<source type="url">@NETBOOT_URL@</source>
+<network-interface mode="dhcp"></network-interface>
+<language>en-us</language>
+<keyboard>us</keyboard>
+<enable-ssh>true</enable-ssh>
+<allow-dev-repo-cert>true</allow-dev-repo-cert>
+<password></password>
+<postinstall>#!/bin/ash -e
+touch /tmp/postinstall.touch
+</postinstall>
