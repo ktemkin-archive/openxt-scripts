@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+#
+# The MIT License (MIT)
+# 
+# Copyright (c) 2015, Assured Information Security, Inc.
+# Author: Kyle J. Temkin  <temkink@ainfosec.com>
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+# ----------
+# Quick-and-dirty script to monitor memory "creepage" on an OpenXT system.
+# ----------
+
+
+
+#
+# General configuration.
+#
+
+#The time to wait between report iterations.
+#Default here is 1; adjust this number to change the default.
+TIME_PER_ITERATION=${TIME_PER_ITERATION:-1}
+
+#The records to include in the process. Each record should have an associated
+#generate_${record} function associated with the name which will return the actual
+#record value.
+RECORDS="vmalloc slab i915gem surfman midori xenmgr"
+
+#This is hardcoded here, for x86, but you could just as easily
+#use a programmatic means. Page size, in KiB.
+PAGE_SIZE=4
+
+#
+# Generation methods. 
+# These are used to generate the individual report entries.
+#
+
+generate_vmalloc() {
+    meminfo_entry VmallocUsed
+}
+
+# Returns the size of the slab, in KiB.
+generate_slab() {
+    meminfo_entry Slab
+}
+
+#Return the amount of memory occupied by i915 gem kernel objects.
+generate_i915gem() {
+    slabinfo_entry "i915_gem_object"
+}
+
+#Return the amount of memory occupied by surfman.
+generate_surfman() {
+    process_size "surfman"
+}
+
+#Return the amount of memory occupied by Midori.
+generate_midori() {
+    process_size_uivm "midori"
+}
+
+generate_xenmgr() {
+    process_size "xenmgr"
+}
+
+
+#
+# Meta-methods; these methods power the generate methods above.
+#
+
+#Returns the memory used by a memory type ($1) according to an entry in /proc/meminfo.
+meminfo_entry() {
+    grep "$1" /proc/meminfo | awk '{print $2}'
+}
+
+#Returns the memory used by a given object type ($1) in the kernel slab.
+slabinfo_entry() {
+    grep "$1" /proc/slabinfo | awk '{print $2*$4}'
+}
+
+#Returns the process size for a given pid ($1).
+pid_size() {
+    awk '{print $1*'$PAGE_SIZE'}' /proc/$1/statm
+}
+
+#Returns the process size for a given pid running on the UIVM.
+pid_size_uivm() {
+    sshv4v uivm awk \'{print \$1*$PAGE_SIZE}\' /proc/$1/statm
+}
+
+#Returns the process size for the first process with a given name ($1).
+process_size() {
+    PID=$(pidof "$1" | awk '{print $1}')
+    pid_size $PID
+}
+
+#Returns the process size for the first process with a given name ($1) running on the UIVM.
+process_size_uivm() {
+    PID=$(sshv4v uivm pidof $1)
+    pid_size_uivm $PID
+}
+
+#Reduces a given line to just a number, in format appropriate for output.
+reduce_to_number() {
+    echo -n $1
+}
+
+#Prints the names of each entry to be included.
+print_header() {
+    for record in $RECORDS; do
+        echo -en "$record\t"
+    done
+
+    echo
+}
+
+#Generates the core report itself.
+size_report() {
+
+    #Print each of the given size records.
+    for record in $RECORDS; do
+        RESULT=$(reduce_to_number $(generate_$record))
+        echo -en "$RESULT\t"
+    done
+    
+    #Terminate the record with a newline.
+    echo 
+}
+
+print_header
+
+while true; do
+    size_report
+    sleep $TIME_PER_ITERATION
+done
